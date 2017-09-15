@@ -1,12 +1,12 @@
 import numpy as np
 
-from stsci_helper import stsci_median
+from .stsci_helper import stsci_median
 
 class Destriper(object):
     def __init__(self):
         self.dy = dy = 128
-        self.n_dy = 2048/dy
-        self.dy_slices = [slice(iy*dy, (iy+1)*dy) for iy in range(2048/dy)]
+        self.n_dy = 2048//dy
+        self.dy_slices = [slice(iy*dy, (iy+1)*dy) for iy in range(self.n_dy)]
 
     def _remove_vertical_smooth_bg(self, d, mask=None):
         ny, nx = d.shape
@@ -27,8 +27,8 @@ class Destriper(object):
         Otherwise, 128x2048 array.
         """
         dy = 64
-        n_dy = 2048/dy
-        dy_slices = [slice(iy*dy, (iy+1)*dy) for iy in range(2048/dy)]
+        n_dy = 2048//dy
+        dy_slices = [slice(iy*dy, (iy+1)*dy) for iy in range(n_dy)]
         from itertools import cycle
         if mask is not None:
             if remove_vertical:
@@ -45,9 +45,8 @@ class Destriper(object):
             dd = [d[sl][::next(alt_sign)] for sl in dy_slices]
             ddm = np.median(dd, axis=0)
 
-
         if concatenate:
-            return np.concatenate([ddm, ddm[::-1]] * (n_dy/2))
+            return np.concatenate([ddm, ddm[::-1]] * (n_dy//2))
         else:
             return ddm
 
@@ -110,7 +109,7 @@ class Destriper(object):
         return ddm
 
     def get_destriped(self, d, mask=None, hori=None, pattern=128,
-                      remove_vertical=True):
+                      remove_vertical=True, return_pattern=False):
         # if hori:
         #     s_hori = np.median(d, axis=0)
         #     d = d - s_hori
@@ -127,16 +126,20 @@ class Destriper(object):
             d_ddm = d - ddm
         elif pattern == 2048:
             ddm = self.get_stripe_pattern2048(d, mask=mask)
-            #ddm = self.get_stripe_pattern128_flat(d, mask=mask)
-            d_ddm = d - ddm[:,np.newaxis]
+            # ddm = self.get_stripe_pattern128_flat(d, mask=mask)
+            d_ddm = d - ddm[:, np.newaxis]
+        else:
+            raise ValueError("incorrect pattern value: %s" % pattern)
 
         if hori:
             d_ddm_masked = np.ma.array(d_ddm, mask=mask)
             s_hori = np.ma.median(d_ddm_masked, axis=1)
-            d_ddm = d_ddm - s_hori[:,np.newaxis]
+            d_ddm = d_ddm - s_hori[:, np.newaxis]
 
-
-        return np.array(d_ddm)
+        if return_pattern:
+            return np.array(d_ddm), ddm
+        else:
+            return np.array(d_ddm)
 
     def get_destriped_naive(self, d):
         """
